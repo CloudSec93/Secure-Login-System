@@ -11,7 +11,6 @@
 
 bool sendOTPEmail(const std::string& email, const std::string& otp) {
     Aws::Client::ClientConfiguration clientConfig;
-    // Optionally set region if needed, e.g., clientConfig.region = "us-west-2";
     Aws::SES::SESClient sesClient(clientConfig);
 
     Aws::SES::Model::SendEmailRequest sendEmailRequest;
@@ -36,7 +35,6 @@ bool sendOTPEmail(const std::string& email, const std::string& otp) {
 
     sendEmailRequest.SetMessage(message);
 
-    // Replace with your verified sender email
     sendEmailRequest.SetSource("harsh.maheshwary@flame.edu.in");
 
     auto sendEmailOutcome = sesClient.SendEmail(sendEmailRequest);
@@ -51,27 +49,23 @@ bool sendOTPEmail(const std::string& email, const std::string& otp) {
 }
 
 bool validateOTP(const std::string& email) {
-    // Generate a random 6-digit OTP
     std::random_device rd;
     unsigned int seed = rd();
     std::mt19937 rng(seed);
     std::uniform_int_distribution<int> dist(100000, 999999);
     int otp = dist(rng);
 
-    // Convert OTP to string
     std::string otp_str = std::to_string(otp);
 
-    // Send OTP via email
     if (!sendOTPEmail(email, otp_str)) {
         std::cerr << "Error: Could not send OTP email." << std::endl;
         return false;
     }
 
-    // Timer starts as soon as the OTP is sent
     auto start_time = std::chrono::steady_clock::now();
 
     const int max_attempts = 3;
-    const int max_duration = 600; // 10 minutes in seconds
+    const int max_duration = 600; 
     int attempts = 0;
     bool authenticated = false;
 
@@ -88,9 +82,9 @@ bool validateOTP(const std::string& email) {
 
         std::string user_input;
         std::cout << "Enter the OTP sent to your email: ";
-        std::cin >> user_input;
+        // std::cin >> user_input;
+        std::getline(std::cin, user_input);
 
-        // Check if max time hasn't elapsed after user input
         current_time = std::chrono::steady_clock::now();
         elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds>(
             current_time - start_time
@@ -103,7 +97,6 @@ bool validateOTP(const std::string& email) {
 
         attempts++;
 
-        // Validation
         if (user_input == otp_str) {
             std::cout << "Authentication successful!" << std::endl;
             authenticated = true;

@@ -1,41 +1,10 @@
-// // #include <aws/core/Aws.h>
-// // #include <aws/dynamodb/DynamoDBClient.h>
-// // #include <aws/dynamodb/model/ListTablesRequest.h>
-// // #include <iostream>
-
-// // int main() {
-// //     Aws::SDKOptions options;
-// //     Aws::InitAPI(options);
-// //     {
-// //         Aws::DynamoDB::DynamoDBClient dynamoClient;
-// //         Aws::DynamoDB::Model::ListTablesRequest request;
-
-// //         auto outcome = dynamoClient.ListTables(request);
-
-// //         if (outcome.IsSuccess()) {
-// //             std::cout << "Your DynamoDB Tables areeeeeee:" << std::endl;
-// //             for (const auto& tableName : outcome.GetResult().GetTableNames()) {
-// //                 std::cout << tableName << std::endl;
-// //             }
-// //         } else {
-// //             std::cerr << "Failed to list tables: " 
-// //                       << outcome.GetError().GetMessage() << std::endl;
-// //         }
-// //     }
-// //     Aws::ShutdownAPI(options);
-// //     return 0;
-// // }
-
-
-
-
-
 
 // // main.cpp
 // #include <iostream>
 // #include <string>
 
-// #include "new_user.h" // Include the header for new user registration
+// #include "new_user.h"      
+// #include "existing_user.h" 
 
 // int main() {
 //     std::string choice;
@@ -43,9 +12,9 @@
 //     std::getline(std::cin, choice);
 
 //     if (choice == "new") {
-//         registerNewUser(); // Call the function from new_user.cpp
+//         registerNewUser(); 
 //     } else if (choice == "existing") {
-//         std::cout << "Coming soon" << std::endl;
+//         loginExistingUser(); 
 //     } else {
 //         std::cout << "Invalid choice." << std::endl;
 //     }
@@ -55,28 +24,34 @@
 
 
 
+
+
 // main.cpp
 #include <iostream>
 #include <string>
 
-#include "new_user.h"      // Include the header for new user registration
-#include "existing_user.h" // Include the header for existing user login
+#include "new_user.h"
+#include "existing_user.h"
 
 int main() {
-    std::string choice;
-    std::cout << "Are you an existing user or a new user? (existing/new): ";
-    std::getline(std::cin, choice);
+    bool exitProgram = false;
+    while (!exitProgram) {
+        std::string choice;
+        std::cout << "Are you an existing user or a new user? (existing/new) or type 'quit' to exit: ";
+        std::getline(std::cin, choice);
 
-    if (choice == "new") {
-        registerNewUser(); // Call the function from new_user.cpp
-    } else if (choice == "existing") {
-        loginExistingUser(); // Call the function from existing_user.cpp
-    } else {
-        std::cout << "Invalid choice." << std::endl;
+        if (choice == "new") {
+            registerNewUser();
+        } else if (choice == "existing") {
+            loginExistingUser();
+        } else if (choice == "quit") {
+            std::cout << "Exiting the program. Goodbye!" << std::endl;
+            exitProgram = true;
+        } else {
+            std::cout << "Invalid choice. Please try again." << std::endl;
+        }
     }
 
     return 0;
 }
-
-
 
