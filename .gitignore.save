@@ -1,0 +1,14 @@
+# Ignore VSCode settings
+.vscode/
+
+# Ignore build files
+build/
+
+# Ignore temporary or generated files
+*.o
+*.d
+*.out
+*.cmake
+CMakeFiles/
+Makefile
+cmake_install.cmake
