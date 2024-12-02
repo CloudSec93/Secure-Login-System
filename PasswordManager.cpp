@@ -1,5 +1,4 @@
 #include "PasswordManager.h"
-
 #include <aws/core/Aws.h>
 #include <aws/dynamodb/DynamoDBClient.h>
 #include <aws/dynamodb/model/PutItemRequest.h>
@@ -15,7 +14,6 @@
 
 PasswordManager::PasswordManager(const std::string& userId) : userId(userId) {
 }
-
 
 std::string PasswordManager::caesarEncrypt(const std::string& plaintext, int key) {
     std::string ciphertext = "";
@@ -94,36 +92,42 @@ void PasswordManager::addPassword() {
 
     std::srand(std::time(0));
 
-    std::cout << "Enter the site or account name: ";
-    std::getline(std::cin, site_name_account);
+    // Helper lambda to get non-empty input
+    auto getNonEmptyInput = [&](const std::string& prompt, std::string& input) {
+        while (true) {
+            std::cout << prompt;
+            std::getline(std::cin, input);
+            if (!input.empty()) {
+                break;
+            }
+            std::cout << "Input cannot be empty. Please try again." << std::endl;
+        }
+    };
 
-    std::cout << "Enter the password: ";
-    std::getline(std::cin, password);
+    // Get non-empty inputs
+    getNonEmptyInput("Enter the site or account name: ", site_name_account);
+    getNonEmptyInput("Enter the password: ", password);
+    getNonEmptyInput("Enter the email associated with this account: ", user_email);
+    getNonEmptyInput("Enter the username for this account: ", user_name);
+    getNonEmptyInput("Enter the URL of the site/account: ", url);
 
-    std::cout << "Enter the email associated with this account: ";
-    std::getline(std::cin, user_email);
-
-    std::cout << "Enter the username for this account: ";
-    std::getline(std::cin, user_name);
-
-    std::cout << "Enter the URL of the site/account: ";
-    std::getline(std::cin, url);
-
-    std::cout << "Select encryption mechanism (caesar_cipher/vigenère_cipher): ";
-    std::getline(std::cin, encryption_mechanism);
-
-    if (encryption_mechanism != "caesar_cipher" && encryption_mechanism != "vigenère_cipher") {
-        std::cerr << "Invalid encryption mechanism selected." << std::endl;
-        return;
+    // Get valid encryption mechanism
+    while (true) {
+        getNonEmptyInput("Select encryption mechanism (caesar_cipher/vigenère_cipher): ", encryption_mechanism);
+        if (encryption_mechanism == "caesar_cipher" || encryption_mechanism == "vigenère_cipher") {
+            break;
+        }
+        std::cout << "Invalid encryption mechanism selected. Please enter 'caesar_cipher' or 'vigenère_cipher'." << std::endl;
     }
 
+    // Encrypt the password based on the selected mechanism
     std::string encrypted_password;
     if (encryption_mechanism == "caesar_cipher") {
-        int caesar_key = std::rand() % 25 + 1;
+        int caesar_key = std::rand() % 25 + 1; // Random key between 1 and 25
         key = std::to_string(caesar_key);
         encrypted_password = caesarEncrypt(password, caesar_key);
     } else if (encryption_mechanism == "vigenère_cipher") {
-        std::string keyword = "CSIT";
+        std::string keyword = "CSIT"; // You can choose a different keyword or make it dynamic
         key = keyword;
         std::string repeating_key = generateVigenereKey(password, keyword);
         encrypted_password = vigenereEncrypt(password, repeating_key);
@@ -198,5 +202,10 @@ void PasswordManager::viewPasswords() {
         std::cout << "URL: " << url << std::endl;
     }
 }
+
+
+
+
+
 
 
