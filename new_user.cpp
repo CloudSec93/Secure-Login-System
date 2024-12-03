@@ -1,6 +1,7 @@
 // new_user.cpp
 #include "new_user.h"
 #include "CustomHash.h"
+#include "Argon2Hash.h"
 #include "otp.h"
 
 #include <aws/core/Aws.h>
@@ -13,6 +14,7 @@
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <chrono>
 
 bool isValidEmail(const std::string& email) {
     const std::regex emailRegex(R"((\w+)(\.{0,1})(\w*)@(\w+)(\.(\w+))+)"); 
@@ -94,12 +96,39 @@ void registerNewUser() {
                 return;
             }
 
-            std::string salt = generateSalt(16); 
-            std::string saltedPassword = salt + password;
+            std::string hashing_algo;
+            std::cout << "Choose hashing algorithm ('argon2' or 'scratch'): ";
+            std::getline(std::cin, hashing_algo);
 
-            CustomHash hasher;
-            unsigned long long hashedPasswordValue = hasher.computeHash(saltedPassword);
-            std::string hashedPassword = hasher.hashToHex(hashedPasswordValue);
+            if (hashing_algo != "argon2" && hashing_algo != "scratch") {
+                std::cerr << "Invalid hashing algorithm choice. Please try again." << std::endl;
+                Aws::ShutdownAPI(options);
+                return;
+            }
+
+            std::string hashedPassword;
+            std::string salt;
+
+            if (hashing_algo == "scratch") {
+                salt = generateSalt(16); 
+                std::string saltedPassword = salt + password;
+
+                CustomHash hasher;
+                unsigned long long hashedPasswordValue = hasher.computeHash(saltedPassword);
+                hashedPassword = hasher.hashToHex(hashedPasswordValue);
+
+            } else if (hashing_algo == "argon2") {
+                size_t salt_length = 16; 
+                std::vector<uint8_t> salt_vec = Argon2Hash::generateSalt(salt_length);
+
+                hashedPassword = Argon2Hash::computeHash(password, salt_vec);
+
+                salt = Argon2Hash::toHex(salt_vec);
+            }
+
+            int failedAttempts = 0;
+            long long lastAttemptTime = 0;
+            long long lockoutUntil = 0;
 
             Aws::DynamoDB::Model::PutItemRequest putRequest;
             putRequest.SetTableName("SLS_Table");
@@ -109,7 +138,11 @@ void registerNewUser() {
             putRequest.AddItem("user_email", Aws::DynamoDB::Model::AttributeValue(user_email));
             putRequest.AddItem("hashed_password", Aws::DynamoDB::Model::AttributeValue(hashedPassword));
             putRequest.AddItem("salt", Aws::DynamoDB::Model::AttributeValue(salt));
-            putRequest.AddItem("hashing_algo", Aws::DynamoDB::Model::AttributeValue("scratch"));
+            putRequest.AddItem("hashing_algo", Aws::DynamoDB::Model::AttributeValue(hashing_algo));
+
+            putRequest.AddItem("FailedAttempts", Aws::DynamoDB::Model::AttributeValue().SetN(std::to_string(failedAttempts)));
+            putRequest.AddItem("LastAttemptTime", Aws::DynamoDB::Model::AttributeValue().SetN(std::to_string(lastAttemptTime)));
+            putRequest.AddItem("LockoutUntil", Aws::DynamoDB::Model::AttributeValue().SetN(std::to_string(lockoutUntil)));
 
             auto putOutcome = dynamoClient.PutItem(putRequest);
             if (putOutcome.IsSuccess()) {

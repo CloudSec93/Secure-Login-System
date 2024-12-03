@@ -1,207 +1,280 @@
+// PasswordManager.cpp
 #include "PasswordManager.h"
-#include <aws/core/Aws.h>
-#include <aws/dynamodb/DynamoDBClient.h>
-#include <aws/dynamodb/model/PutItemRequest.h>
-#include <aws/dynamodb/model/QueryRequest.h>
-#include <aws/dynamodb/model/AttributeValue.h>
 #include <iostream>
-#include <string>
-#include <cstdlib>
-#include <ctime>
-#include <map>
-#include <vector>
-#include <cctype>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+// #include "MakeUnique.h"
 
-PasswordManager::PasswordManager(const std::string& userId) : userId(userId) {
+
+
+// Helper function to trim whitespace
+static inline std::string trim(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
 
-std::string PasswordManager::caesarEncrypt(const std::string& plaintext, int key) {
-    std::string ciphertext = "";
-    for (char c : plaintext) {
-        if (std::isalpha(static_cast<unsigned char>(c))) {
-            char base = std::islower(static_cast<unsigned char>(c)) ? 'a' : 'A';
-            c = (c - base + key) % 26 + base;
-        }
-        ciphertext += c;
-    }
-    return ciphertext;
+PasswordManager::PasswordManager(const std::string& user_id)
+    : user_id_(user_id), filename_("passwords_" + user_id + ".txt") {
+    loadPasswords();
 }
 
-std::string PasswordManager::caesarDecrypt(const std::string& ciphertext, int key) {
-    std::string plaintext = "";
-    for (char c : ciphertext) {
-        if (std::isalpha(static_cast<unsigned char>(c))) {
-            char base = std::islower(static_cast<unsigned char>(c)) ? 'a' : 'A';
-            c = (c - base - key + 26) % 26 + base;
-        }
-        plaintext += c;
-    }
-    return plaintext;
-}
-
-std::string PasswordManager::generateVigenereKey(const std::string& str, const std::string& key) {
-    std::string newKey = key;
-    int x = str.size();
-
-    for (size_t i = 0; ; i++) {
-        if (x == newKey.size())
+void PasswordManager::displayMenu() {
+    while (true) {
+        std::cout << "\nPassword Manager Menu:\n";
+        std::cout << "1) View Passwords\n";
+        std::cout << "2) Add Password\n";
+        std::cout << "3) Update Password\n";
+        std::cout << "4) Delete Password\n";
+        std::cout << "5) Exit Password Manager\n";
+        std::cout << "Enter your choice (1-5): ";
+        
+        std::string choice;
+        std::getline(std::cin, choice);
+        
+        if (choice == "1") {
+            viewPasswords();
+        } else if (choice == "2") {
+            addPassword();
+        } else if (choice == "3") {
+            updatePassword();
+        } else if (choice == "4") {
+            deletePassword();
+        } else if (choice == "5") {
+            std::cout << "Exiting Password Manager.\n";
             break;
-        newKey.push_back(newKey[i % key.size()]);
+        } else {
+            std::cout << "Invalid choice. Please try again.\n";
+        }
     }
-    return newKey;
 }
 
-std::string PasswordManager::vigenereEncrypt(const std::string& str, const std::string& key) {
-    std::string cipher_text;
-
-    for (size_t i = 0; i < str.size(); i++) {
-        char c = str[i];
-        if (std::isalpha(static_cast<unsigned char>(c))) {
-            char base = std::isupper(static_cast<unsigned char>(c)) ? 'A' : 'a';
-            char k = std::isupper(static_cast<unsigned char>(key[i])) ? key[i] - 'A' : key[i] - 'a';
-            c = (c - base + k) % 26 + base;
-        }
-        cipher_text.push_back(c);
+void PasswordManager::loadPasswords() {
+    entries_.clear();
+    std::ifstream infile(filename_);
+    if (!infile.is_open()) {
+        return;
     }
-    return cipher_text;
+    
+    std::string line;
+    while (std::getline(infile, line)) {
+        std::stringstream ss(line);
+        PasswordEntry entry;
+        std::getline(ss, entry.user_id, '|');
+        std::getline(ss, entry.site_name_account, '|');
+        std::getline(ss, entry.encryption_mechanism, '|');
+        std::getline(ss, entry.key, '|');
+        std::getline(ss, entry.password, '|');
+        std::getline(ss, entry.url, '|');
+        std::getline(ss, entry.user_email, '|');
+        std::getline(ss, entry.user_name, '|');
+        
+        auto encryption = getEncryptionHandler(entry.encryption_mechanism);
+        if (encryption) {
+            entry.password = encryption->decrypt(entry.password, entry.key);
+        } else {
+            std::cerr << "Unsupported encryption mechanism for entry: " << entry.site_name_account << "\n";
+            continue;
+        }
+        
+        entries_.push_back(entry);
+    }
+    infile.close();
 }
 
-std::string PasswordManager::vigenereDecrypt(const std::string& cipher_text, const std::string& key) {
-    std::string orig_text;
-
-    for (size_t i = 0; i < cipher_text.size(); i++) {
-        char c = cipher_text[i];
-        if (std::isalpha(static_cast<unsigned char>(c))) {
-            char base = std::isupper(static_cast<unsigned char>(c)) ? 'A' : 'a';
-            char k = std::isupper(static_cast<unsigned char>(key[i])) ? key[i] - 'A' : key[i] - 'a';
-            c = (c - base - k + 26) % 26 + base;
-        }
-        orig_text.push_back(c);
+void PasswordManager::savePasswords() {
+    std::ofstream outfile(filename_, std::ofstream::trunc);
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open file for writing: " << filename_ << "\n";
+        return;
     }
-    return orig_text;
+    
+    for (const auto& entry : entries_) {
+        PasswordEntry encryptedEntry = entry;
+        auto encryption = getEncryptionHandler(encryptedEntry.encryption_mechanism);
+        if (encryption) {
+            encryptedEntry.password = encryption->encrypt(encryptedEntry.password, encryptedEntry.key);
+        } else {
+            std::cerr << "Unsupported encryption mechanism for entry: " << encryptedEntry.site_name_account << "\n";
+            continue;
+        }
+        
+        outfile << encryptedEntry.user_id << "|"
+                << encryptedEntry.site_name_account << "|"
+                << encryptedEntry.encryption_mechanism << "|"
+                << encryptedEntry.key << "|"
+                << encryptedEntry.password << "|"
+                << encryptedEntry.url << "|"
+                << encryptedEntry.user_email << "|"
+                << encryptedEntry.user_name << "\n";
+    }
+    outfile.close();
+}
+
+// std::unique_ptr<Encryption> PasswordManager::getEncryptionHandler(const std::string& mechanism) {
+//     if (mechanism == "caesar") {
+//         return std::make_unique<CaesarCipher>();
+//     } else if (mechanism == "vigenere") {
+//         return std::make_unique<VigenereCipher>();
+//     } else {
+//         return nullptr;
+//     }
+// }
+
+
+std::unique_ptr<Encryption> PasswordManager::getEncryptionHandler(const std::string& mechanism) {
+    if (mechanism == "caesar") {
+        return std::unique_ptr<Encryption>(new CaesarCipher());
+    } else if (mechanism == "vigenere") {
+        return std::unique_ptr<Encryption>(new VigenereCipher());
+    } else {
+        return nullptr;
+    }
+}
+
+bool PasswordManager::promptForEntry(PasswordEntry& entry) {
+    std::cout << "Enter site name/account: ";
+    std::getline(std::cin, entry.site_name_account);
+    if (entry.site_name_account.empty()) {
+        std::cout << "Site name/account cannot be empty.\n";
+        return false;
+    }
+    
+    std::cout << "Choose encryption mechanism (caesar/vigenere): ";
+    std::getline(std::cin, entry.encryption_mechanism);
+    std::transform(entry.encryption_mechanism.begin(), entry.encryption_mechanism.end(), entry.encryption_mechanism.begin(), ::tolower);
+    if (entry.encryption_mechanism != "caesar" && entry.encryption_mechanism != "vigenere") {
+        std::cout << "Unsupported encryption mechanism.\n";
+        return false;
+    }
+    
+    std::cout << "Enter key for encryption: ";
+    std::getline(std::cin, entry.key);
+    if (entry.key.empty()) {
+        std::cout << "Key cannot be empty.\n";
+        return false;
+    }
+    
+    std::cout << "Enter password: ";
+    std::getline(std::cin, entry.password);
+    if (entry.password.empty()) {
+        std::cout << "Password cannot be empty.\n";
+        return false;
+    }
+    
+    std::cout << "Enter URL: ";
+    std::getline(std::cin, entry.url);
+    if (entry.url.empty()) {
+        std::cout << "URL cannot be empty.\n";
+        return false;
+    }
+    
+    std::cout << "Enter user email: ";
+    std::getline(std::cin, entry.user_email);
+    if (entry.user_email.empty()) {
+        std::cout << "User email cannot be empty.\n";
+        return false;
+    }
+    
+    std::cout << "Enter user name: ";
+    std::getline(std::cin, entry.user_name);
+    if (entry.user_name.empty()) {
+        std::cout << "User name cannot be empty.\n";
+        return false;
+    }
+    
+    entry.user_id = user_id_;
+    return true;
 }
 
 void PasswordManager::addPassword() {
-    std::string site_name_account;
-    std::string password;
-    std::string user_email;
-    std::string user_name;
-    std::string url;
-    std::string encryption_mechanism;
-    std::string key;
-
-    std::srand(std::time(0));
-
-    // Helper lambda to get non-empty input
-    auto getNonEmptyInput = [&](const std::string& prompt, std::string& input) {
-        while (true) {
-            std::cout << prompt;
-            std::getline(std::cin, input);
-            if (!input.empty()) {
-                break;
-            }
-            std::cout << "Input cannot be empty. Please try again." << std::endl;
-        }
-    };
-
-    // Get non-empty inputs
-    getNonEmptyInput("Enter the site or account name: ", site_name_account);
-    getNonEmptyInput("Enter the password: ", password);
-    getNonEmptyInput("Enter the email associated with this account: ", user_email);
-    getNonEmptyInput("Enter the username for this account: ", user_name);
-    getNonEmptyInput("Enter the URL of the site/account: ", url);
-
-    // Get valid encryption mechanism
-    while (true) {
-        getNonEmptyInput("Select encryption mechanism (caesar_cipher/vigenère_cipher): ", encryption_mechanism);
-        if (encryption_mechanism == "caesar_cipher" || encryption_mechanism == "vigenère_cipher") {
-            break;
-        }
-        std::cout << "Invalid encryption mechanism selected. Please enter 'caesar_cipher' or 'vigenère_cipher'." << std::endl;
+    PasswordEntry newEntry;
+    if (!promptForEntry(newEntry)) {
+        std::cout << "Failed to add password due to incomplete information.\n";
+        return;
     }
-
-    // Encrypt the password based on the selected mechanism
-    std::string encrypted_password;
-    if (encryption_mechanism == "caesar_cipher") {
-        int caesar_key = std::rand() % 25 + 1; // Random key between 1 and 25
-        key = std::to_string(caesar_key);
-        encrypted_password = caesarEncrypt(password, caesar_key);
-    } else if (encryption_mechanism == "vigenère_cipher") {
-        std::string keyword = "CSIT"; // You can choose a different keyword or make it dynamic
-        key = keyword;
-        std::string repeating_key = generateVigenereKey(password, keyword);
-        encrypted_password = vigenereEncrypt(password, repeating_key);
+    
+    // Check for duplicate site_name_account
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [&](const PasswordEntry& e) { return e.site_name_account == newEntry.site_name_account; });
+    if (it != entries_.end()) {
+        std::cout << "An entry for this site/account already exists.\n";
+        return;
     }
-
-    Aws::Client::ClientConfiguration clientConfig;
-    Aws::DynamoDB::DynamoDBClient dynamoClient(clientConfig);
-
-    Aws::DynamoDB::Model::PutItemRequest pir;
-    pir.SetTableName("PasswordManager_Table");
-
-    pir.AddItem("user_id", Aws::DynamoDB::Model::AttributeValue(this->userId));
-    pir.AddItem("site_name_account", Aws::DynamoDB::Model::AttributeValue(site_name_account));
-    pir.AddItem("password", Aws::DynamoDB::Model::AttributeValue(encrypted_password));
-    pir.AddItem("user_email", Aws::DynamoDB::Model::AttributeValue(user_email));
-    pir.AddItem("user_name", Aws::DynamoDB::Model::AttributeValue(user_name));
-    pir.AddItem("url", Aws::DynamoDB::Model::AttributeValue(url));
-    pir.AddItem("encryption_mechanism", Aws::DynamoDB::Model::AttributeValue(encryption_mechanism));
-    pir.AddItem("key", Aws::DynamoDB::Model::AttributeValue(key));
-
-    auto outcome = dynamoClient.PutItem(pir);
-    if (!outcome.IsSuccess()) {
-        std::cerr << "Failed to add password to PasswordManager_Table: " << outcome.GetError().GetMessage() << std::endl;
-    } else {
-        std::cout << "Password successfully added to PasswordManager_Table." << std::endl;
-    }
+    
+    entries_.push_back(newEntry);
+    savePasswords();
+    std::cout << "Password added successfully.\n";
 }
 
 void PasswordManager::viewPasswords() {
-    Aws::Client::ClientConfiguration clientConfig;
-    Aws::DynamoDB::DynamoDBClient dynamoClient(clientConfig);
-
-    Aws::DynamoDB::Model::QueryRequest queryRequest;
-    queryRequest.SetTableName("PasswordManager_Table");
-    queryRequest.SetKeyConditionExpression("user_id = :uid");
-    queryRequest.AddExpressionAttributeValues(":uid", Aws::DynamoDB::Model::AttributeValue(this->userId));
-
-    auto outcome = dynamoClient.Query(queryRequest);
-    if (!outcome.IsSuccess()) {
-        std::cerr << "Failed to retrieve passwords: " << outcome.GetError().GetMessage() << std::endl;
+    if (entries_.empty()) {
+        std::cout << "No passwords stored.\n";
         return;
     }
-
-    const auto& items = outcome.GetResult().GetItems();
-    if (items.empty()) {
-        std::cout << "No passwords found for this user." << std::endl;
-        return;
-    }
-
-    for (const auto& item : items) {
-        std::string site_name_account = item.at("site_name_account").GetS();
-        std::string encrypted_password = item.at("password").GetS();
-        std::string user_email = item.at("user_email").GetS();
-        std::string user_name = item.at("user_name").GetS();
-        std::string url = item.at("url").GetS();
-        std::string encryption_mechanism = item.at("encryption_mechanism").GetS();
-        std::string key = item.at("key").GetS();
-
-        std::string decrypted_password;
-        if (encryption_mechanism == "caesar_cipher") {
-            int caesar_key = std::stoi(key);
-            decrypted_password = caesarDecrypt(encrypted_password, caesar_key);
-        } else if (encryption_mechanism == "vigenère_cipher") {
-            std::string repeating_key = generateVigenereKey(encrypted_password, key);
-            decrypted_password = vigenereDecrypt(encrypted_password, repeating_key);
-        }
-
-        std::cout << "\nSite/Account Name: " << site_name_account << std::endl;
-        std::cout << "Decrypted Password: " << decrypted_password << std::endl;
-        std::cout << "User Email: " << user_email << std::endl;
-        std::cout << "User Name: " << user_name << std::endl;
-        std::cout << "URL: " << url << std::endl;
+    
+    std::cout << "\nStored Passwords:\n";
+    for (const auto& entry : entries_) {
+        printEntry(entry);
     }
 }
+
+void PasswordManager::printEntry(const PasswordEntry& entry) {
+    std::cout << "----------------------------------------\n";
+    std::cout << "Site/Account: " << entry.site_name_account << "\n";
+    std::cout << "URL: " << entry.url << "\n";
+    std::cout << "User Email: " << entry.user_email << "\n";
+    std::cout << "User Name: " << entry.user_name << "\n";
+    std::cout << "Password: " << entry.password << "\n";
+    std::cout << "Encryption Mechanism: " << entry.encryption_mechanism << "\n";
+    std::cout << "----------------------------------------\n";
+}
+
+void PasswordManager::updatePassword() {
+    std::cout << "Enter the site name/account of the password to update: ";
+    std::string site;
+    std::getline(std::cin, site);
+    
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [&](const PasswordEntry& e) { return e.site_name_account == site; });
+    if (it == entries_.end()) {
+        std::cout << "No entry found for the specified site/account.\n";
+        return;
+    }
+    
+    std::cout << "Enter new password: ";
+    std::string new_password;
+    std::getline(std::cin, new_password);
+    if (new_password.empty()) {
+        std::cout << "Password cannot be empty.\n";
+        return;
+    }
+    
+    it->password = new_password;
+    savePasswords();
+    std::cout << "Password updated successfully.\n";
+}
+
+void PasswordManager::deletePassword() {
+    std::cout << "Enter the site name/account of the password to delete: ";
+    std::string site;
+    std::getline(std::cin, site);
+    
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [&](const PasswordEntry& e) { return e.site_name_account == site; });
+    if (it == entries_.end()) {
+        std::cout << "No entry found for the specified site/account.\n";
+        return;
+    }
+    
+    entries_.erase(it);
+    savePasswords();
+    std::cout << "Password deleted successfully.\n";
+}
+
+
+
 
 
 
