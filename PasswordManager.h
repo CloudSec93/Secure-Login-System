@@ -1,4 +1,3 @@
-
 // PasswordManager.h
 #ifndef PASSWORD_MANAGER_H
 #define PASSWORD_MANAGER_H
@@ -7,6 +6,13 @@
 #include <vector>
 #include <memory>
 #include "Encryption.h"
+
+// AWS SDK Headers for DynamoDB
+#include <aws/core/Aws.h>
+#include <aws/dynamodb/DynamoDBClient.h>
+#include <aws/dynamodb/model/QueryRequest.h>
+#include <aws/dynamodb/model/AttributeValue.h>
+#include <chrono>
 
 struct PasswordEntry {
     std::string user_id;
@@ -28,6 +34,7 @@ public:
     void addPassword();
     void updatePassword();
     void deletePassword();
+    void viewLoginHistory(); 
     
 private:
     std::string user_id_;
@@ -39,6 +46,10 @@ private:
     std::unique_ptr<Encryption> getEncryptionHandler(const std::string& mechanism);
     bool promptForEntry(PasswordEntry& entry);
     void printEntry(const PasswordEntry& entry);
+    
+    // Helper methods
+    std::string generateStrongPassword(int length);
+    void copyToClipboard(const std::string& text);
 };
 
 #endif // PASSWORD_MANAGER_H
