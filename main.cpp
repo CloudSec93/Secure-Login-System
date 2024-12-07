@@ -1,31 +1,3 @@
-
-// // main.cpp
-// #include <iostream>
-// #include <string>
-
-// #include "new_user.h"      
-// #include "existing_user.h" 
-
-// int main() {
-//     std::string choice;
-//     std::cout << "Are you an existing user or a new user? (existing/new): ";
-//     std::getline(std::cin, choice);
-
-//     if (choice == "new") {
-//         registerNewUser(); 
-//     } else if (choice == "existing") {
-//         loginExistingUser(); 
-//     } else {
-//         std::cout << "Invalid choice." << std::endl;
-//     }
-
-//     return 0;
-// }
-
-
-
-
-
 // main.cpp
 #include <iostream>
 #include <string>

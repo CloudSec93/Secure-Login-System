@@ -113,3 +113,9 @@ bool validateOTP(const std::string& email) {
 
     return authenticated;
 }
+
+
+
+
+
+
