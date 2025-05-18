@@ -34,12 +34,13 @@ void loginExistingUser() {
     bool loggedIn = false;
     bool exitProgram = false;
 
+    // Initialize AWS SDK
     Aws::SDKOptions options;
     Aws::InitAPI(options);
     {
         Aws::Client::ClientConfiguration clientConfig;
         Aws::DynamoDB::DynamoDBClient dynamoClient(clientConfig);
-        Aws::SES::SESClient sesClient(clientConfig); // Initialize SES client
+        Aws::SES::SESClient sesClient(clientConfig); 
 
         while (!exitProgram && attempts < max_attempts) {
             std::string user_id;
@@ -154,7 +155,9 @@ void loginExistingUser() {
                                               << lockout_duration_minutes << " minutes." << std::endl;
 
                                     sendAccountLockEmail(user_email, lockout_duration_minutes);
+                                    break;
                                 }
+                                
                             } else {
                                 failedAttempts = 1;
                             }
@@ -183,7 +186,7 @@ void loginExistingUser() {
                         }
                         continue;
                     } else {
-                        // Reset failed attempts
+                
                         Aws::DynamoDB::Model::UpdateItemRequest updateRequest;
                         updateRequest.SetTableName("SLS_Table");
                         updateRequest.AddKey("user_id", Aws::DynamoDB::Model::AttributeValue(user_id));
@@ -194,8 +197,7 @@ void loginExistingUser() {
 
                         auto updateOutcome = dynamoClient.UpdateItem(updateRequest);
                         if (!updateOutcome.IsSuccess()) {
-                            std::cerr << "Failed to reset failed attempts: "
-                                      << updateOutcome.GetError().GetMessage() << std::endl;
+                            std::cerr << "Failed to reset failed attempts: " << updateOutcome.GetError().GetMessage() << std::endl;
                         }
 
                         std::cout << "Password verified. An OTP has been sent to your registered email." << std::endl;
@@ -262,6 +264,7 @@ void loginExistingUser() {
             }
         }
     }
+    // Shutdown AWS SDK
     Aws::ShutdownAPI(options);
 }
 

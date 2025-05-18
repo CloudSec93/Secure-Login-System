@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 
-#include "new_user.h"
-#include "existing_user.h"
+#include "auth/new_user.h"
+#include "auth/existing_user.h"
 
 int main() {
     bool exitProgram = false;

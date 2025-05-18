@@ -46,23 +46,23 @@ string decrypt(string cipher_text, string key) {
     return orig_text;
 }
 
-int main() {
-    string str;
-    cout << "Enter the password (plaintext): ";
-    getline(cin, str);
+// int main() {
+//     string str;
+//     cout << "Enter the password (plaintext): ";
+//     getline(cin, str);
 
-    string keyword = "CSIT";
+//     string keyword = "CSIT";
 
-    string key = generateKey(str, keyword);
+//     string key = generateKey(str, keyword);
 
-    string cipher_text = encrypt(str, key);
+//     string cipher_text = encrypt(str, key);
 
-    string decrypted_text = decrypt(cipher_text, key);
+//     string decrypted_text = decrypt(cipher_text, key);
 
-    cout << "\nKey: " << keyword << endl;
-    cout << "Generated repeating key: " << key << endl;
-    cout << "Encrypted text: " << cipher_text << endl;
-    cout << "Decrypted text: " << decrypted_text << endl;
+//     cout << "\nKey: " << keyword << endl;
+//     cout << "Generated repeating key: " << key << endl;
+//     cout << "Encrypted text: " << cipher_text << endl;
+//     cout << "Decrypted text: " << decrypted_text << endl;
 
-    return 0;
-}
+//     return 0;
+// }

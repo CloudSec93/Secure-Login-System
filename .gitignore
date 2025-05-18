@@ -4,11 +4,25 @@
 # Ignore build files
 build/
 
+
+# Ignore output directory
+output/
+
 # Ignore temporary or generated files
 *.o
 *.d
-*.out
+*.outcd
 *.cmake
 CMakeFiles/
 Makefile
 cmake_install.cmake
+
+# Ignore the third party directory as requested
+third_party/
+
+# Ignore the readme.pdf file as requested
+readme.pdf
+
+# Ignore the main executable (optional, but common for generated binaries)
+SecureLoginSystem
+

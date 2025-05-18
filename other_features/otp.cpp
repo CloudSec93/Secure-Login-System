@@ -62,7 +62,7 @@ bool validateOTP(const std::string& email) {
         return false;
     }
 
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::steady_clock::now(); 
 
     const int max_attempts = 3;
     const int max_duration = 600; 

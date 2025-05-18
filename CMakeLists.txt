@@ -117,23 +117,44 @@ set(ARGON2_SRC
 )
 
 # Include directories for Argon2 and other headers
+# include_directories(
+#     third_party/phc-winner-argon2/include
+#     include
+# )
+
+
 include_directories(
-    third_party/phc-winner-argon2/include
-    include
+    third_party/phc-winner-argon2/include # Argon2 headers
+    .                                   # Include project root (for main.cpp if needed, though headers are subdirs)
+    auth                                # Headers in the auth directory
+    encryptions                         # Headers in the encryptions directory (e.g., Encryption.h)
+    hashing                             # Headers in the hashing directory (e.g., Argon2Hash.h, CustomHash.h)
+    other_features                      # Headers in the other_features directory (e.g., otp.h, PasswordManager.h, forgot_password.h)
+    utils                               # Headers in the utils directory (e.g., utilities.h)
 )
+
 
 # Add the executable and source files
 add_executable(SecureLoginSystem
     main.cpp
-    new_user.cpp
-    existing_user.cpp
-    forgot_password.cpp
-    CustomHash.cpp
-    Argon2Hash.cpp
-    otp.cpp
-    utilities.cpp
-    PasswordManager.cpp
-    Encryption.cpp
+    
+    auth/new_user.cpp
+    auth/existing_user.cpp
+    
+    other_features/forgot_password.cpp
+    
+    hashing/CustomHash.cpp
+    hashing/Argon2Hash.cpp
+    
+    other_features/otp.cpp
+    
+    utils/utilities.cpp
+    
+    other_features/PasswordManager.cpp
+    
+    encryptions/Encryption.cpp
+    encryptions/ceasar_cipher.cpp      
+    encryptions/vigenère_cipher.cpp
     ${ARGON2_SRC} # Include Argon2 source files in the build
 )
 

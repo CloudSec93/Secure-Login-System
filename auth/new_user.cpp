@@ -1,8 +1,8 @@
 // new_user.cpp
-#include "new_user.h"
-#include "CustomHash.h"
-#include "Argon2Hash.h"
-#include "otp.h"
+#include "auth/new_user.h"
+#include "hashing/CustomHash.h"
+#include "hashing/Argon2Hash.h"
+#include "other_features/otp.h"
 
 #include <aws/core/Aws.h>
 #include <aws/dynamodb/DynamoDBClient.h>
@@ -43,7 +43,7 @@ bool checkUniqueEmail(Aws::DynamoDB::DynamoDBClient& dynamoClient, const std::st
 
     auto outcome = dynamoClient.Query(queryRequest);
     if (outcome.IsSuccess()) {
-        return outcome.GetResult().GetItems().empty(); 
+        return outcome.GetResult().GetItems().empty();  
     } else {
         throw std::runtime_error("Failed to query user_email: " + outcome.GetError().GetMessage());
     }
@@ -110,7 +110,7 @@ void registerNewUser() {
             std::string salt;
 
             if (hashing_algo == "scratch") {
-                salt = generateSalt(16); 
+                salt = generateSalt(16);                                
                 std::string saltedPassword = salt + password;
 
                 CustomHash hasher;
